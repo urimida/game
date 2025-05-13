@@ -1,36 +1,37 @@
 let screen = "home";
-let playerX = 50;
-let playerY = 300;
+let playerX = 50,
+  playerY = 300;
 let playerSpeed = 2;
 let direction = { x: 0, y: 0 };
 let goalX, goalY;
 let distance = 0;
-let meterToWin = 100;
 let showTutorial = true;
-let prevX, prevY;  // ← 이전 위치 저장용
-let goalSet = false;  // 깃발 위치 고정 플래그
+let goalSet = false;
 
 let keyMap = {};
 let keyOptions = ["ArrowUp", "ArrowDown", "ArrowLeft", "ArrowRight"];
 let lastKeyShuffle = 0;
-const keyShuffleInterval = 3000; // 3초마다 키 변경
-
+const keyShuffleInterval = 3000;
 let currentKey = null;
 let keyPressStartTime = 0;
-const keyHoldLimit = 1000; // 3초 이상 누르면 멈춤
+const keyHoldLimit = 1000;
+
 let returning = false;
 let returnStartTime = 0;
-let returnDuration = 1000; // 밀려나는 애니메이션 시간 (ms)
+let returnDuration = 1000;
 let explosionEffect = false;
 let explosionStart = 0;
 
-let cookieImgs = [];
-let currentFrame = 0;
+let bgImg,
+  cookieImgs = [],
+  currentFrame = 0,
+  goalImg;
 
 function preload() {
   cookieImgs[0] = loadImage("../src/img/cookie1.png");
   cookieImgs[1] = loadImage("../src/img/cookie2.png");
-  bgImg = loadImage("../src/img/background.png"); // ← 배경 이미지 불러오기
+  bgImg = loadImage("../src/img/background.png");
+  goalImg = loadImage("../src/img/star.png");
 }
 
 function setup() {
@@ -40,50 +41,47 @@ function setup() {
 }
 
 function draw() {
-  image(bgImg, 0, 0, width, height); // ← 배경 이미지 적용
-
-  if (screen === "home") drawHome();
-  else if (screen === "level1") drawLevel1();
-  else if (screen === "level1Clear") drawLevel1Clear();
+  clear();
+  if (screen === "level1") {
+    drawLevel1();
+  } else {
+    background(230);
+    if (screen === "home") drawHome();
+    else if (screen === "level1Clear") drawLevel1Clear();
+  }
 }
 
 function drawHome() {
   textSize(48);
   textAlign(CENTER, CENTER);
-  text("👾 고통 체험관 👾", width / 2, height / 4);
-
+  text("고통 체험관", width / 2, height / 4);
   drawButton("1단계: 방향키 혼란 달리기", width / 2, height / 2, () => {
     screen = "level1";
     resetLevel1();
   });
-
-  drawButton("2단계: ???", width / 2, height / 2 + 180, () => {
-    // 준비중
-  });
+  drawButton("2단계: ???", width / 2, height / 2 + 180, () => {});
 }
 
 function drawLevel1() {
+  background(0);
+  if (bgImg) drawBackgroundCover(bgImg);
   if (showTutorial) {
     drawTutorialModal();
     return;
   }
 
-  // 키 섞기
   if (millis() - lastKeyShuffle > keyShuffleInterval) {
     shuffleKeys();
     lastKeyShuffle = millis();
   }
 
-  // 3초 이상 누르면 멈춤
   if (currentKey && millis() - keyPressStartTime > keyHoldLimit) {
     direction = { x: 0, y: 0 };
     currentKey = null;
     keyPressStartTime = 0;
   }
 
-  // 🧨 이펙트 중이면 잠깐 보여주기
   if (explosionEffect) {
-    drawExplosion(goalX, goalY);
     if (millis() - explosionStart > 300) {
       explosionEffect = false;
       returning = true;
@@ -92,35 +90,31 @@ function drawLevel1() {
     return;
   }
 
-  // 🏃 돌아오는 중이면 부드럽게 이동
   if (returning) {
     let t = (millis() - returnStartTime) / returnDuration;
     if (t >= 1) {
       playerX = 50;
-      playerY = height / 2;
+      playerY = height * 0.75;
       returning = false;
     } else {
       playerX = lerp(goalX, 50, t);
-      playerY = lerp(goalY, height / 2, t);
+      playerY = lerp(goalY, height * 0.75, t);
     }
-
     drawCookie(playerX, playerY);
     drawGoal(goalX, goalY);
     return;
   }
 
-  // 정상 이동
-  let beforeX = playerX;
-  let beforeY = playerY;
-
+  let prevX = playerX;
+  let prevY = playerY;
   playerX += direction.x * playerSpeed;
   playerY += direction.y * playerSpeed;
 
   playerX = constrain(playerX, 0, width);
-  playerY = constrain(playerY, 100, height - 100);
+  playerY = constrain(playerY, height / 2, height - 100);
 
-  let dx = playerX - beforeX;
-  let dy = playerY - beforeY;
+  let dx = playerX - prevX;
+  let dy = playerY - prevY;
   distance += sqrt(dx * dx + dy * dy);
 
   drawCookie(playerX, playerY);
@@ -132,20 +126,25 @@ function drawLevel1() {
   text(`총 이동 거리: ${int(distance)} px`, width / 2, 40);
   text(`방향키가 고장났습니다!`, width / 2, 70);
 
-  // 골 도착 판정 (오차 범위 ↑)
   if (dist(playerX, playerY, goalX, goalY) < 80) {
     direction = { x: 0, y: 0 };
     currentKey = null;
     keyPressStartTime = 0;
     distance = 0;
-
     explosionEffect = true;
     explosionStart = millis();
   }
 
-  drawButton("게임 나가기", width - 200, 50, () => {
-    screen = "home";
-  });
+  drawButton(
+    "나가기",
+    width - 80,
+    30,
+    () => {
+      screen = "home";
+    },
+    100,
+    40
+  );
 }
 
 function drawTutorialModal() {
@@ -157,21 +156,21 @@ function drawTutorialModal() {
 
   noStroke();
   fill(0);
-  textAlign(CENTER, TOP);
+  textAlign(CENTER, CENTER);
   textSize(20);
-  text("방향키가 고장났습니다!\n\n지시된 방향키를 누르면 쿠키가 이동해요.\n키는 3초마다 바뀌고, 3초 이상 누르면 멈춰요!\n\n",
-       width / 2, height / 2 - 110);
+  text(
+    "방향키가 고장났습니다!\n\n지시된 방향키를 누르면 쿠키가 이동해요.\n키는 3초마다 바뀌고, 너무 오래 누르면 멈춰요!",
+    width / 2,
+    height / 2
+  );
 
-  // X 버튼
   fill(200, 0, 0);
   ellipse(width / 2 + 280, height / 2 - 130, 30);
-
   fill(255);
   textAlign(CENTER, CENTER);
   textSize(18);
   text("X", width / 2 + 280, height / 2 - 130);
 
-  // 클릭 감지
   if (
     mouseIsPressed &&
     dist(mouseX, mouseY, width / 2 + 280, height / 2 - 130) < 15
@@ -183,16 +182,16 @@ function drawTutorialModal() {
 function drawLevel1Clear() {
   textSize(48);
   textAlign(CENTER, CENTER);
-  text("🎉 1단계 클리어! 🎉", width / 2, height / 2 - 60);
+  text("1단계 클리어!", width / 2, height / 2 - 60);
   drawButton("홈으로 돌아가기", width / 2, height / 2 + 40, () => {
     screen = "home";
   });
 }
 
 function keyPressed() {
-  // 이미 방향이 지정되어 있는 동안 새 키가 들어와도 덮어쓰기
   for (let dir in keyMap) {
     if (key === keyMap[dir]) {
+      direction = { x: 0, y: 0 };
       currentKey = key;
       keyPressStartTime = millis();
 
@@ -201,7 +200,7 @@ function keyPressed() {
       else if (dir === "up") direction = { x: 0, y: -1 };
       else if (dir === "down") direction = { x: 0, y: 1 };
 
-      break; // 매핑된 키를 찾으면 더 이상 검사하지 않음
+      return;
     }
   }
 }
@@ -215,29 +214,33 @@ function keyReleased() {
 }
 
 function shuffleKeys() {
-  let keys = [...keyOptions];
+  let keys = shuffle([...keyOptions]);
+  while (keys.length < 4) keys.push("ArrowUp");
   keyMap = {
-    left: random(keys),
-    right: random(keys),
-    up: random(keys),
-    down: random(keys)
+    left: keys[0],
+    right: keys[1],
+    up: keys[2],
+    down: keys[3],
   };
-  console.log("🔄 키 매핑 변경:", keyMap);
+  console.log("키 매핑 변경:", keyMap);
 }
 
-function drawButton(label, x, y, callback) {
-  let w = 400;
-  let h = 100;
+function drawButton(label, x, y, callback, w = null, h = null) {
+  textSize(24);
+  let padding = 130;
+  let textW = textWidth(label);
+  if (w === null) w = textW + padding;
+  if (h === null) h = 60;
+
   rectMode(CENTER);
   stroke(0);
   strokeWeight(3);
   fill(255);
-  rect(x, y, w, h, 30);
+  rect(x, y, w, h, 15);
 
   noStroke();
   fill(0);
   textAlign(CENTER, CENTER);
-  textSize(24);
   text(label, x, y);
 
   if (
@@ -253,29 +256,25 @@ function drawButton(label, x, y, callback) {
 
 function resetLevel1() {
   playerX = 50;
-  playerY = height / 2;
+  playerY = height * 0.75;
   direction = { x: 0, y: 0 };
   distance = 0;
-
   if (!goalSet) {
     goalX = random(width * 0.75, width * 0.95);
-    goalY = random(height * 0.3, height * 0.7);
+    goalY = random(height * 0.55, height * 0.95);
     goalSet = true;
   }
-
   shuffleKeys();
   lastKeyShuffle = millis();
 }
 
 function drawCookie(x, y) {
   const img = cookieImgs[currentFrame];
-
   if (img && img.width > 0 && img.height > 0) {
     imageMode(CENTER);
     const desiredWidth = 200;
     const scale = desiredWidth / img.width;
     const desiredHeight = img.height * scale;
-
     image(img, x, y, desiredWidth, desiredHeight);
 
     if (frameCount % 15 === 0) {
@@ -284,30 +283,59 @@ function drawCookie(x, y) {
   } else {
     fill(0);
     textAlign(CENTER);
-    text("🍪 쿠키 로딩 중...", x, y);
+    text("쿠키 로딩 중...", x, y);
   }
 }
 
 function drawGoal(x, y) {
-  stroke(0);
-  strokeWeight(2);
-  line(x, y + 50, x, y - 50);
-  fill(255, 0, 0);
-  triangle(x, y - 50, x + 40, y - 40, x, y - 30);
+  if (goalImg && goalImg.width > 0 && goalImg.height > 0) {
+    push();
+
+    // 후광 효과 그리기
+    noStroke();
+    for (let i = 3; i > 0; i--) {
+      let alpha = 50 / i;
+      fill(255, 255, 0, alpha); // 노란색 계열, 투명도 점점 줄임
+      ellipse(x, y, 120 * i, 120 * i);
+    }
+
+    // 별 이미지 그리기
+    imageMode(CENTER);
+    const scale = 0.1;
+    image(goalImg, x, y, goalImg.width * scale, goalImg.height * scale);
+
+    pop();
+  } else {
+    stroke(0);
+    strokeWeight(2);
+    line(x, y + 50, x, y - 50);
+    fill(255, 0, 0);
+    triangle(x, y - 50, x + 40, y - 40, x, y - 30);
+  }
+}
+
+function drawExplosion(x, y) {
+  // 아무 것도 표시하지 않음
+}
+
+function drawBackgroundCover(img) {
+  const canvasRatio = width / height;
+  const imgRatio = img.width / img.height;
+  let drawWidth, drawHeight;
+
+  if (canvasRatio > imgRatio) {
+    drawWidth = width;
+    drawHeight = width / imgRatio;
+  } else {
+    drawHeight = height;
+    drawWidth = height * imgRatio;
+  }
+
+  imageMode(CENTER);
+  image(img, width / 2, height / 2, drawWidth, drawHeight);
+  imageMode(CORNER);
 }
 
 function windowResized() {
   resizeCanvas(windowWidth, windowHeight);
-}
-
-function drawExplosion(x, y) {
-  push();
-  textAlign(CENTER, CENTER);
-  textSize(64);
-  fill(255, 0, 0);
-  text("💥 펑! 속았지?! 💥", x, y - 80);
-  pop();
-
-  drawCookie(x, y);
-  drawGoal(goalX, goalY);
 }
